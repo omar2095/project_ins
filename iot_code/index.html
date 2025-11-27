@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="Professional Smart-Watch Health Monitoring Dashboard" />
+<meta name="theme-color" content="#a8e6cf" />
+<title>Smart-Watch Health Monitor — Professional Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<div class="animated-bg"></div>
+
+<!-- Critical Alert Banner -->
+<div id="criticalAlert" class="soft-alert">
+  <i class="fas fa-exclamation-circle"></i> 
+  <span id="alertMessage">CRITICAL HEALTH ALERT DETECTED!</span>
+  <button class="alert-close" onclick="closeCriticalAlert()">
+    <i class="fas fa-times"></i>
+  </button>
+</div>
+
+<!-- Emergency Mode Overlay -->
+<div id="emergencyMode" class="emergency-overlay">
+  <div class="emergency-card">
+    <div class="emergency-icon">
+      <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <h2>EMERGENCY MODE ACTIVATED</h2>
+    <p id="emergencyMessage">Critical health alert detected. Emergency services have been notified.</p>
+    <div class="emergency-actions">
+      <button class="btn-emergency-action" onclick="sendLocationAgain()">
+        <i class="fas fa-map-marker-alt"></i> Send Location Again
+      </button>
+      <button class="btn-emergency-action" onclick="closeEmergencyMode()">
+        <i class="fas fa-times"></i> Dismiss
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Navigation Bar -->
+<nav class="navbar">
+  <div class="brand">
+    <div class="icon-pulse">
+      <i class="fas fa-heartbeat"></i>
+    </div>
+    <span>Smart-Watch Health Monitor</span>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-bluetooth" id="bluetoothBtn" onclick="connectBluetooth()">
+      <i class="fas fa-bluetooth-b"></i>
+      <span id="bluetoothText">Connect to Smart Watch</span>
+    </button>
+    <button class="btn btn-emergency" onclick="triggerEmergency()">
+      <i class="fas fa-exclamation-triangle"></i>
+      <span>EMERGENCY</span>
+    </button>
+    <button class="btn btn-profile" onclick="showPage('profile')">
+      <i class="fas fa-user-circle"></i>
+      <span>Profile</span>
+    </button>
+    <div class="status-indicator">
+      <div class="status-dot" id="connDot"></div>
+      <div>
+        <div class="status-text" id="connText">Disconnected</div>
+        <div class="status-subtext" id="connSubtext">Waiting for connection</div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Main Container -->
+<div class="container">
+  
+  <!-- Navigation Tabs -->
+  <div class="page-tabs">
+    <button class="tab-btn active" onclick="showPage('dashboard')" data-page="dashboard">
+      <i class="fas fa-home"></i> Dashboard
+    </button>
+    <button class="tab-btn" onclick="showPage('activity')" data-page="activity">
+      <i class="fas fa-chart-line"></i> Activity
+    </button>
+    <button class="tab-btn" onclick="showPage('profile')" data-page="profile">
+      <i class="fas fa-user"></i> Profile
+    </button>
+    <button class="tab-btn" onclick="showPage('settings')" data-page="settings">
+      <i class="fas fa-cog"></i> Settings
+    </button>
+    <button class="tab-btn" onclick="showPage('system')" data-page="system">
+      <i class="fas fa-server"></i> System Status
+    </button>
+    <button class="tab-btn" onclick="showPage('about')" data-page="about">
+      <i class="fas fa-info-circle"></i> About
+    </button>
+  </div>
+
+  <!-- Dashboard Page -->
+  <div class="page-content active" id="dashboard-page">
+    <!-- Virtual Smart-Watch Component -->
+    <div class="virtual-watch-container">
+      <div class="virtual-watch">
+        <div class="watch-face">
+          <div class="watch-ring"></div>
+          <div class="watch-screen">
+            <div class="watch-header">Smart Watch</div>
+            <div class="watch-metrics">
+              <div class="watch-metric">
+                <i class="fas fa-heartbeat"></i>
+                <span id="watchHR">--</span>
+                <small>bpm</small>
+              </div>
+              <div class="watch-metric">
+                <i class="fas fa-wind"></i>
+                <span id="watchSP">--</span>
+                <small>%</small>
+              </div>
+              <div class="watch-metric">
+                <i class="fas fa-thermometer-half"></i>
+                <span id="watchTemp">--</span>
+                <small>°C</small>
+              </div>
+            </div>
+            <div class="watch-time" id="watchTime">--:--</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- GPS Map Section -->
+      <div class="gps-section">
+        <div class="gps-card">
+          <div class="gps-header">
+            <h3><i class="fas fa-map-marker-alt"></i> Live Location</h3>
+            <div class="gps-status" id="gpsStatus">
+              <span class="gps-dot"></span>
+              <span>Waiting for GPS...</span>
+            </div>
+          </div>
+          <div id="map" class="map-container"></div>
+          <div class="gps-info">
+            <div class="gps-info-item">
+              <label>Latitude:</label>
+              <span id="gpsLat">--</span>
+            </div>
+            <div class="gps-info-item">
+              <label>Longitude:</label>
+              <span id="gpsLng">--</span>
+            </div>
+            <div class="gps-info-item">
+              <label>Speed:</label>
+              <span id="gpsSpeed">--</span> km/h
+            </div>
+            <div class="gps-info-item">
+              <label>Accuracy:</label>
+              <span id="gpsAccuracy">--</span> m
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="top-section">
+      <div class="metric-cards">
+        <div class="metric-card">
+          <div class="metric-header">
+            <div class="metric-icon heart">
+              <i class="fas fa-heartbeat"></i>
+            </div>
+            <div class="metric-trend trend-up" id="hrTrend">
+              <i class="fas fa-arrow-up"></i>
+              <span>Normal</span>
+            </div>
+          </div>
+          <div class="metric-title">Heart Rate</div>
+          <div class="metric-value" id="hrValue">--</div>
+          <div class="metric-subtitle">
+            <i class="far fa-clock"></i>
+            <span id="hrSmall">Last update: --</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <div class="metric-icon oxygen">
+              <i class="fas fa-wind"></i>
+            </div>
+            <div class="metric-trend trend-up" id="spTrend">
+              <i class="fas fa-arrow-up"></i>
+              <span>Normal</span>
+            </div>
+          </div>
+          <div class="metric-title">SpO₂ (Oxygen)</div>
+          <div class="metric-value" id="spValue">--</div>
+          <div class="metric-subtitle">
+            <i class="far fa-clock"></i>
+            <span id="spSmall">Last update: --</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <div class="metric-icon temperature">
+              <i class="fas fa-thermometer-half"></i>
+            </div>
+            <div class="metric-trend trend-up" id="tempTrend">
+              <i class="fas fa-check"></i>
+              <span>Normal</span>
+            </div>
+          </div>
+          <div class="metric-title">Temperature</div>
+          <div class="metric-value" id="tempValue">--</div>
+          <div class="metric-subtitle">
+            <i class="far fa-clock"></i>
+            <span id="tempSmall">Last update: --</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <div class="metric-icon battery">
+              <i class="fas fa-battery-three-quarters"></i>
+            </div>
+            <div class="metric-trend trend-up" id="batTrend">
+              <i class="fas fa-check"></i>
+              <span>Good</span>
+            </div>
+          </div>
+          <div class="metric-title">Battery Level</div>
+          <div class="metric-value" id="batValue">--</div>
+          <div class="metric-subtitle">
+            <i class="far fa-clock"></i>
+            <span id="batSmall">Last update: --</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-chart-line"></i>
+            Heart Rate Monitoring
+          </div>
+          <div class="chart-info">Normal: 60-100 bpm</div>
+        </div>
+        <canvas id="hrChart"></canvas>
+      </div>
+
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-chart-area"></i>
+            SpO₂ Monitoring
+          </div>
+          <div class="chart-info">Normal: 95-100%</div>
+        </div>
+        <canvas id="spChart"></canvas>
+      </div>
+
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-chart-line"></i>
+            Temperature Monitoring
+          </div>
+          <div class="chart-info">Normal: 36.5-37.5°C</div>
+        </div>
+        <canvas id="tempChart"></canvas>
+      </div>
+
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-chart-bar"></i>
+            Battery Level
+          </div>
+          <div class="chart-info">Device Power Status</div>
+        </div>
+        <canvas id="batChart"></canvas>
+      </div>
+    </div>
+
+    <div class="logs-panel">
+      <div class="logs-header">
+        <div class="logs-title">
+          <i class="fas fa-history"></i>
+          Recent Updates
+        </div>
+        <div class="logs-actions">
+          <button class="btn-small btn-clear" id="clearBtn">
+            <i class="fas fa-trash-alt"></i> Clear
+          </button>
+          <button class="btn-small btn-export" id="exportBtn">
+            <i class="fas fa-download"></i> Export CSV
+          </button>
+        </div>
+      </div>
+      <div class="logs-list" id="logList"></div>
+    </div>
+  </div>
+
+  <!-- Activity/Metrics Page -->
+  <div class="page-content" id="activity-page">
+    <div class="page-header">
+      <h2><i class="fas fa-chart-line"></i> Activity & Metrics</h2>
+      <p>View historical trends and detailed health metrics</p>
+    </div>
+
+    <div class="activity-filters">
+      <div class="filter-group">
+        <label>Time Range</label>
+        <select id="timeRange" class="control-select">
+          <option value="1h">Last Hour</option>
+          <option value="24h" selected>Last 24 Hours</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Metric</label>
+        <select id="metricFilter" class="control-select">
+          <option value="all">All Metrics</option>
+          <option value="heart">Heart Rate</option>
+          <option value="oxygen">SpO₂</option>
+          <option value="temperature">Temperature</option>
+          <option value="battery">Battery</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-heartbeat"></i>
+            Heart Rate Trends
+          </div>
+        </div>
+        <canvas id="activityHrChart"></canvas>
+      </div>
+
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-wind"></i>
+            Oxygen Variation
+          </div>
+        </div>
+        <canvas id="activitySpChart"></canvas>
+      </div>
+
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-thermometer-half"></i>
+            Temperature Over Time
+          </div>
+        </div>
+        <canvas id="activityTempChart"></canvas>
+      </div>
+
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-battery-three-quarters"></i>
+            Battery History
+          </div>
+        </div>
+        <canvas id="activityBatChart"></canvas>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Average Heart Rate</div>
+        <div class="stat-value" id="avgHeartRate">--</div>
+        <div class="stat-unit">bpm</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Average SpO₂</div>
+        <div class="stat-value" id="avgOxygen">--</div>
+        <div class="stat-unit">%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Average Temperature</div>
+        <div class="stat-value" id="avgTemperature">--</div>
+        <div class="stat-unit">°C</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Readings</div>
+        <div class="stat-value" id="totalReadings">0</div>
+        <div class="stat-unit">records</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Page -->
+  <div class="page-content" id="profile-page">
+    <div class="page-header">
+      <h2><i class="fas fa-user-circle"></i> User Profile</h2>
+      <p>Manage your personal information and emergency contacts</p>
+    </div>
+
+    <div class="profile-container">
+      <div class="profile-card">
+        <div class="profile-avatar-container">
+          <div class="profile-avatar" id="profileAvatar">
+            <img id="avatarImage" src="" alt="Avatar" style="display: none;">
+            <i class="fas fa-user" id="avatarIcon"></i>
+          </div>
+          <label for="avatarUpload" class="avatar-upload-btn">
+            <i class="fas fa-camera"></i> Upload Photo
+          </label>
+          <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+        </div>
+        <h3 id="profileNameDisplay">User Name</h3>
+        <div class="profile-info">
+          <div class="info-item">
+            <label><i class="fas fa-user"></i> Full Name</label>
+            <input type="text" id="profileName" class="form-input" placeholder="Enter your name">
+          </div>
+          <div class="info-item">
+            <label><i class="fas fa-envelope"></i> Email</label>
+            <input type="email" id="profileEmail" class="form-input" placeholder="your.email@example.com">
+          </div>
+          <div class="info-item">
+            <label><i class="fas fa-phone"></i> Emergency Contact</label>
+            <input type="tel" id="emergencyPhone" class="form-input" placeholder="+1234567890">
+          </div>
+          <div class="info-item">
+            <label><i class="fas fa-envelope"></i> Emergency Email</label>
+            <input type="email" id="emergencyEmail" class="form-input" placeholder="emergency@example.com">
+          </div>
+        </div>
+        <button class="btn-save" onclick="saveProfile()">
+          <i class="fas fa-save"></i> Save Profile
+        </button>
+      </div>
+
+      <div class="about-card">
+        <h3><i class="fas fa-info-circle"></i> About</h3>
+        <div class="about-content">
+          <p><strong>Created by:</strong> OMAR GOUDA</p>
+          <p><strong>Team:</strong> Egyptian Chinese University Team (ECU)</p>
+          <p><strong>Version:</strong> 1.0.0</p>
+          <p><strong>Description:</strong> Professional Smart-Watch Health Monitoring System with real-time Bluetooth connectivity, emergency alerts, and comprehensive health tracking.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Page -->
+  <div class="page-content" id="settings-page">
+    <div class="page-header">
+      <h2><i class="fas fa-cog"></i> Settings</h2>
+      <p>Configure alerts, thresholds, and system preferences</p>
+    </div>
+
+    <div class="settings-container">
+      <div class="settings-section">
+        <h3><i class="fas fa-bell"></i> Alert Thresholds</h3>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label>Heart Rate - High Threshold (bpm)</label>
+            <input type="number" id="hrHighThreshold" class="form-input" value="100" min="60" max="200">
+            <small>Alert when heart rate exceeds this value</small>
+          </div>
+          <div class="setting-item">
+            <label>Heart Rate - Low Threshold (bpm)</label>
+            <input type="number" id="hrLowThreshold" class="form-input" value="60" min="30" max="100">
+            <small>Alert when heart rate falls below this value</small>
+          </div>
+          <div class="setting-item">
+            <label>SpO₂ - Low Threshold (%)</label>
+            <input type="number" id="spLowThreshold" class="form-input" value="95" min="70" max="100">
+            <small>Alert when oxygen level falls below this value</small>
+          </div>
+          <div class="setting-item">
+            <label>Temperature - High Threshold (°C)</label>
+            <input type="number" id="tempHighThreshold" class="form-input" value="37.5" min="35" max="42" step="0.1">
+            <small>Alert when temperature exceeds this value (fever)</small>
+          </div>
+          <div class="setting-item">
+            <label>Temperature - Low Threshold (°C)</label>
+            <input type="number" id="tempLowThreshold" class="form-input" value="36.5" min="35" max="40" step="0.1">
+            <small>Alert when temperature falls below this value</small>
+          </div>
+          <div class="setting-item">
+            <label>Battery - Low Threshold (%)</label>
+            <input type="number" id="batLowThreshold" class="form-input" value="20" min="0" max="100">
+            <small>Alert when battery level falls below this value</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3><i class="fas fa-sync"></i> Update Settings</h3>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label>Data Refresh Interval (seconds)</label>
+            <input type="number" id="refreshInterval" class="form-input" value="5" min="1" max="60">
+            <small>How often to update data from device</small>
+          </div>
+          <div class="setting-item">
+            <label>Chart Data Points</label>
+            <input type="number" id="chartDataPoints" class="form-input" value="20" min="10" max="100">
+            <small>Number of data points to show in charts</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3><i class="fas fa-bluetooth-b"></i> Bluetooth Settings</h3>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label>Auto-Reconnect</label>
+            <label class="switch">
+              <input type="checkbox" id="autoReconnect" checked>
+              <span class="slider"></span>
+            </label>
+            <small>Automatically reconnect if connection is lost</small>
+          </div>
+          <div class="setting-item">
+            <button class="btn btn-bluetooth" onclick="connectBluetooth()">
+              <i class="fas fa-bluetooth-b"></i> Reconnect Device
+            </button>
+            <button class="btn btn-small" onclick="disconnectBluetooth()">
+              <i class="fas fa-times"></i> Disconnect
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3><i class="fas fa-envelope"></i> Email Alert Settings</h3>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label>Enable Email Alerts</label>
+            <label class="switch">
+              <input type="checkbox" id="emailAlertsEnabled" checked>
+              <span class="slider"></span>
+            </label>
+            <small>Send email notifications when thresholds are exceeded</small>
+          </div>
+          <div class="setting-item">
+            <label>Alert Email Address</label>
+            <input type="email" id="alertEmail" class="form-input" placeholder="alerts@example.com">
+            <small>Email address to receive health alerts</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3><i class="fas fa-palette"></i> Theme Settings</h3>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label>Select Theme</label>
+            <select id="themeSelect" class="form-input">
+              <option value="calm-blue">Calm Blue</option>
+              <option value="soft-green">Soft Green</option>
+              <option value="sunset-pink">Sunset Pink</option>
+              <option value="pure-dark">Pure Dark</option>
+              <option value="amoled-black">AMOLED Black</option>
+            </select>
+            <small>Choose your preferred color theme</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3><i class="fas fa-microphone"></i> Voice Alerts</h3>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label>Enable Voice Alerts</label>
+            <label class="switch">
+              <input type="checkbox" id="voiceAlertsEnabled" checked>
+              <span class="slider"></span>
+            </label>
+            <small>Announce alerts using text-to-speech</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3><i class="fas fa-video"></i> Session Recording</h3>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label>Session Status</label>
+            <div class="session-controls">
+              <button class="btn btn-record" id="recordBtn" onclick="toggleRecording()">
+                <i class="fas fa-circle"></i> <span id="recordText">Start Recording</span>
+              </button>
+              <button class="btn btn-small" id="exportSessionBtn" onclick="exportSession()" disabled>
+                <i class="fas fa-download"></i> Export Session
+              </button>
+            </div>
+            <small id="sessionStatus">Not recording</small>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-save" onclick="saveSettings()">
+        <i class="fas fa-save"></i> Save All Settings
+      </button>
+    </div>
+  </div>
+
+  <!-- System Status Page -->
+  <div class="page-content" id="system-page">
+    <div class="page-header">
+      <h2><i class="fas fa-server"></i> System Status</h2>
+      <p>Monitor device connection, GPS, and system performance</p>
+    </div>
+
+    <div class="system-status-grid">
+      <div class="status-card">
+        <div class="status-card-header">
+          <i class="fas fa-bluetooth-b"></i>
+          <h3>Bluetooth Connection</h3>
+        </div>
+        <div class="status-card-content">
+          <div class="status-item">
+            <label>Device Name:</label>
+            <span id="deviceName">--</span>
+          </div>
+          <div class="status-item">
+            <label>Connection Status:</label>
+            <span id="connectionStatus">Disconnected</span>
+          </div>
+          <div class="status-item">
+            <label>BLE Signal Strength (RSSI):</label>
+            <span id="bleRSSI">--</span> dBm
+          </div>
+          <div class="status-item">
+            <label>Last Sync Time:</label>
+            <span id="lastSyncTime">--</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-card-header">
+          <i class="fas fa-microchip"></i>
+          <h3>Device Information</h3>
+        </div>
+        <div class="status-card-content">
+          <div class="status-item">
+            <label>Firmware Version:</label>
+            <span id="firmwareVersion">--</span>
+          </div>
+          <div class="status-item">
+            <label>Battery Level:</label>
+            <span id="deviceBattery">--</span>%
+          </div>
+          <div class="status-item">
+            <label>Uptime:</label>
+            <span id="deviceUptime">--</span>
+          </div>
+          <div class="status-item">
+            <label>Device Temperature:</label>
+            <span id="deviceTemperature">--</span>°C
+          </div>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-card-header">
+          <i class="fas fa-satellite"></i>
+          <h3>GPS Status</h3>
+        </div>
+        <div class="status-card-content">
+          <div class="status-item">
+            <label>GPS Status:</label>
+            <span id="gpsStatusText">Inactive</span>
+          </div>
+          <div class="status-item">
+            <label>GPS Accuracy:</label>
+            <span id="gpsAccuracyStatus">--</span> m
+          </div>
+          <div class="status-item">
+            <label>Last Update:</label>
+            <span id="gpsLastUpdate">--</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-card-header">
+          <i class="fas fa-heartbeat"></i>
+          <h3>Sensor Status</h3>
+        </div>
+        <div class="status-card-content">
+          <div class="status-item">
+            <label>Heart Rate Sensor:</label>
+            <span id="sensorHR" class="sensor-status">Active</span>
+          </div>
+          <div class="status-item">
+            <label>SpO₂ Sensor:</label>
+            <span id="sensorSP" class="sensor-status">Active</span>
+          </div>
+          <div class="status-item">
+            <label>Temperature Sensor:</label>
+            <span id="sensorTemp" class="sensor-status">Active</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-card-header">
+          <i class="fas fa-chart-line"></i>
+          <h3>Performance</h3>
+        </div>
+        <div class="status-card-content">
+          <div class="status-item">
+            <label>FPS:</label>
+            <span id="fpsCounter">--</span>
+          </div>
+          <div class="status-item">
+            <label>Packet Loss:</label>
+            <span id="packetLoss">0</span>%
+          </div>
+          <div class="status-item">
+            <label>Data Update Rate:</label>
+            <span id="dataUpdateRate">--</span> ms
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About Page -->
+  <div class="page-content" id="about-page">
+    <div class="page-header">
+      <h2><i class="fas fa-info-circle"></i> About</h2>
+      <p>Smart-Watch Health Monitoring Project</p>
+    </div>
+
+    <div class="about-container">
+      <div class="about-main-card">
+        <div class="about-logo">
+          <i class="fas fa-heartbeat"></i>
+        </div>
+        <h2>Smart-Watch Health Monitor</h2>
+        <p class="version">Version 2.0.0</p>
+        
+        <div class="about-section">
+          <h3><i class="fas fa-user"></i> Developed By</h3>
+          <p class="developer-name">OMAR GOUDA</p>
+        </div>
+
+        <div class="about-section">
+          <h3><i class="fas fa-university"></i> Institution</h3>
+          <p>Egyptian Chinese University (ECU)</p>
+          <p class="team-name">Egyptian Chinese University Team (ECU)</p>
+        </div>
+
+        <div class="about-section">
+          <h3><i class="fas fa-info-circle"></i> Description</h3>
+          <p>Professional Smart-Watch Health Monitoring System with real-time Bluetooth connectivity, GPS tracking, emergency alerts, and comprehensive health tracking. Built as a Progressive Web App (PWA) for seamless mobile and desktop experience.</p>
+        </div>
+
+        <div class="about-section">
+          <h3><i class="fas fa-feather-alt"></i> Features</h3>
+          <ul class="features-list">
+            <li><i class="fas fa-check"></i> Real-time health monitoring (Heart Rate, SpO₂, Temperature)</li>
+            <li><i class="fas fa-check"></i> Bluetooth Low Energy (BLE) connectivity</li>
+            <li><i class="fas fa-check"></i> GPS tracking and location services</li>
+            <li><i class="fas fa-check"></i> Emergency alert system with voice notifications</li>
+            <li><i class="fas fa-check"></i> Offline mode with local data storage</li>
+            <li><i class="fas fa-check"></i> Session recording and data export</li>
+            <li><i class="fas fa-check"></i> Multiple theme options</li>
+            <li><i class="fas fa-check"></i> Progressive Web App (PWA) support</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <h3><i class="fas fa-code"></i> Technologies</h3>
+          <div class="tech-tags">
+            <span class="tech-tag">HTML5</span>
+            <span class="tech-tag">CSS3</span>
+            <span class="tech-tag">JavaScript (ES6+)</span>
+            <span class="tech-tag">Chart.js</span>
+            <span class="tech-tag">Leaflet.js</span>
+            <span class="tech-tag">Web Bluetooth API</span>
+            <span class="tech-tag">Firebase</span>
+            <span class="tech-tag">PWA</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <i class="fas fa-shield-alt"></i> 
+  Smart-Watch Health Monitor — Created by OMAR GOUDA | Egyptian Chinese University Team (ECU)
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
+
